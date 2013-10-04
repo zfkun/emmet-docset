@@ -4,7 +4,6 @@ import sqlite3
 import re
 import HTMLParser
 import shutil
-from pprint import pprint
 
 
 # Section HTMLParser Class
@@ -64,26 +63,25 @@ class SectionHTMLParser(HTMLParser.HTMLParser):
 
 
 class Config():
-    RE_SECTION = r'<section class="ch-section ch-section_(\w+)">(.*?)</section>'
-    # RE_SECTION = r"<(?<tag>[\w]+)[^>]*\sid=[\"']?s[\"']?[^>]*>([^<>]*|<\k<tag>[^>]*>(?<D>)|</\k<tag>>(?<-D>)|<[^>]*>)*(?(D)(?!))</\k<tag>>"
-    RE_SECTION_TITLE = r'<h2 class="ch-section__title">(.*?)</h2>'
-    RE_SUBSECTION_TITLE = r'<h3 class="ch-subsection__title">(.*?)</h3>'
-    RE_KEY = r'<dt class="ch-snippet__name">(.*?)</dt>'
+    RE_CATEGORY = r'<h2 class="ch-section__title">(.*?)</h2>'
+    RE_SECTION = r'<h3 class="ch-subsection__title">(.*?)</h3>'
+    RE_DIRECTIVE = r'<dt class="ch-snippet__name">(.*?)</dt>'
 
     DIR_SRC = 'src/'
     DIR_PATCH = 'patch/'
     DIR_DOCUMENT = 'Emmet.docset/Contents/Resources/Documents/'
+    
     FILE_DB = 'Emmet.docset/Contents/Resources/docSet.dsidx'
 
 
 
 def getRule(type):
     if (type == 'Category'):
-        return Config.RE_SECTION_TITLE
+        return Config.RE_CATEGORY
     elif (type == 'Section'):
-        return Config.RE_SUBSECTION_TITLE
+        return Config.RE_SECTION
     elif (type == 'Directive'):
-        return Config.RE_KEY
+        return Config.RE_DIRECTIVE
     else:
         return ''
 
