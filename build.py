@@ -1,9 +1,9 @@
 #!/bin/env python
 
-import sqlite3
+import os
 import re
+import sqlite3
 import HTMLParser
-import shutil
 
 
 # Section HTMLParser Class
@@ -67,11 +67,20 @@ class Config():
     RE_SECTION = r'<h3 class="ch-subsection__title">(.*?)</h3>'
     RE_DIRECTIVE = r'<dt class="ch-snippet__name">(.*?)</dt>'
 
+    NAME_DOCSET = 'Emmet'
+
     DIR_SRC = 'src/'
     DIR_PATCH = 'patch/'
+    DIR_DOCSET = 'Emmet.docset/'
     DIR_DOCUMENT = 'Emmet.docset/Contents/Resources/Documents/'
     
+    FILE_CHEATSHEET = 'src/cheat-sheet.html'
     FILE_DB = 'Emmet.docset/Contents/Resources/docSet.dsidx'
+
+    SQL_TABLE_DROP = 'DROP TABLE IF EXISTS searchIndex'
+    SQL_TABLE_CREAT = 'CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT)'
+    SQL_INDEX_CREAT = 'CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)'
+    SQL_INDEX_ADD = "insert into searchIndex(name, type, path) values('%s', '%s', 'index.html#%s')"
 
 
 
@@ -85,14 +94,15 @@ def getRule(type):
     else:
         return ''
 
+def indexAdd(db, name, type, path):
+    if (db):
+        db.execute(Config.SQL_INDEX_ADD % (name, type, path))
 
-def indexInsert(db, data, category, type):  
-    ret = re.findall(getRule(type), data, re.S)
-    for r in ret:
+def indexAddByCategory(db, data, category, type):  
+    for r in re.findall(getRule(type), data, re.S):
         r = re.compile('\s{1,}').sub(' ', r)
         # print '(name, type, path): ', r, ',', type, ',', type + '_' + category + '_' + r
-        db.execute("insert into searchIndex(name, type, path) values('%s', '%s', 'index.html#%s')" % (r, type, type + '_' + category + '_' + r))
-
+        indexAdd(db, r, type, type + '_' + category + '_' + r)
 
 
 
@@ -103,14 +113,14 @@ conn = sqlite3.connect(Config.FILE_DB)
 cur = conn.cursor()
 
 # Create Table
-cur.execute('DROP TABLE IF EXISTS searchIndex')
-cur.execute('CREATE TABLE searchIndex(id INTEGER PRIMARY KEY, name TEXT, type TEXT, path TEXT)')
-cur.execute('CREATE UNIQUE INDEX anchor ON searchIndex (name, type, path)')
+cur.execute(Config.SQL_TABLE_DROP)
+cur.execute(Config.SQL_TABLE_CREAT)
+cur.execute(Config.SQL_INDEX_CREAT)
 
 
 
 # html
-fp = open(Config.DIR_SRC + 'cheat-sheet.html', 'r')
+fp = open(Config.FILE_CHEATSHEET, 'r')
 html = fp.read()
 fp.close()
 
@@ -122,20 +132,20 @@ parser.feed(html)
 
 # db init
 for data in parser.matches:
-    ret = re.findall(Config.RE_SECTION_TITLE, data, re.S)
+    ret = re.findall(Config.RE_CATEGORY, data, re.S)
     category = ret[0]
-    type = 'Category'
+
     print 'Init Category >>> ', category
     
     # Category init
-    cur.execute("insert into searchIndex(name, type, path) values('%s', '%s', 'index.html#%s')" % (category.lower(), type, type + '_' + category))
+    indexAdd(cur, category.lower(), 'Category', 'Category_' + category)
 
     # Section init
-    indexInsert(cur, data, category, 'Section')
+    indexAddByCategory(cur, data, category, 'Section')
 
     # Directive init
     if (category.lower() != 'syntax'):
-        indexInsert(cur, data, category, 'Directive')
+        indexAddByCategory(cur, data, category, 'Directive')
 
 
 # db close
@@ -143,16 +153,18 @@ conn.commit()
 conn.close()
 
 
-# get patch code (JS)
-fp = open(Config.DIR_PATCH + 'index.js', 'r')
-patch = fp.read()
-fp.close()
 
-# create index.html
-fp = open(Config.DIR_DOCUMENT + 'index.html', 'w')
-fp.write(html + '<script>' + patch + '</script>')
-fp.close()
+
+
+
+# create index.html with patch
+os.system('cat ' + Config.FILE_CHEATSHEET + ' ' + Config.DIR_PATCH + 'index.patch >> ' + Config.DIR_DOCUMENT + 'index.html');
 
 # copy static resource
-for css in ['main', 'cheatsheet']:
-    shutil.copy(Config.DIR_SRC + css + '.css', Config.DIR_DOCUMENT)
+os.system('cp src/*.css ' + Config.DIR_DOCUMENT)
+
+# make icon.png
+os.system('sips -z 32 32 ' + Config.DIR_SRC + 'logo.png --out ' + Config.DIR_DOCSET + 'icon.png')
+
+# make archived docset
+os.system("tar --exclude='.DS_Store' -cvzf " + Config.NAME_DOCSET + ".tgz " + Config.NAME_DOCSET + ".docset")
