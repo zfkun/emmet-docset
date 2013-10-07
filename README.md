@@ -15,6 +15,6 @@ Emmet-DocSet
 
 	$ python build.py
 
-### Feed
+### Feed [(Online)](http://zfkun.github.io/emmet-docset/Emmet.xml)
 
-	dash-feed://https%3A%2F%2Fraw.github.com%2Fzfkun%2Femmet-docset%2Fmaster%2FEmmet.xml
+	dash-feed://http%3A%2F%2Fzfkun.github.io%2Femmet-docset%2FEmmet.xml
