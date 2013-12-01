@@ -1,0 +1,169 @@
+#! /usr/bin/env phantomjs
+
+var fs = require( 'fs' );
+var spawn = require('child_process').spawn;
+var webpage = require( 'webpage' );
+
+var targetURL = 'http://docs.emmet.io/cheat-sheet/';
+var outputDir = '../src/';
+var outputFile = 'cheat-sheet.html';
+var assets = { css: [], js: [], cache: {} };
+
+
+var page = webpage.create();
+page.onResourceRequested = function(req) {
+    var url = req.url,
+        name = url.split('/').pop().replace(/\.css(.*)/, '.css');
+
+    if ( !assets.cache[ name ] && /\.css/.test(url) ) {
+        console.info( '>> add', url );
+        assets.cache[ name ] = 1;
+        assets.css.push({ url: url, name: name });
+    }
+};
+page.open( targetURL, function ( status ) {
+    if ( status !== 'success' ) {
+        console.info( 'network error', status );
+    }
+    else {
+        // patch dom
+        var sqls = page.evaluate( patch4build, assets );
+
+        // write sql
+        fs.write( outputDir + 'index.sql', sqls.join("\r") );
+        
+        // write file
+        fs.write( outputDir + outputFile, page.content );
+        
+        // close page
+        page.close();
+        page.onResourceRequested = null;
+
+        // fetch assets
+        fetchAsset( assets, function () {
+            build(function() {
+                phantom.exit();
+            })
+        });
+    }
+});
+
+
+function build( fn ) {
+    var python = spawn('python', ['build.py']);
+    python.stdout.on('data', function(data) {
+        console.info( 'build output: ', data );
+    });
+    python.on('exit', function(code) {
+        console.info( 'buid complete: ', code);
+        fn && fn();
+    });
+}
+
+
+function fetchAsset( assets, fn ) {
+    var css = assets.css.pop();
+    if (css) {
+        console.info('>> start', css.name, css.url);
+        
+        var file = fs.open(outputDir + css.name, 'w');
+        var curl = spawn('curl', [css.url]);
+        curl.stdout.on('data', function(data) {
+            file.write(data);
+        });
+        curl.on('exit', function(code) {
+            console.info('>> end', css.name);
+            file.close();
+            if (code !== 0) {  
+                console.log('>> fail', code);
+                assets.css.push(css);
+            }
+            else {
+                fetchAsset( assets, fn );
+            }
+        });
+    }
+    else {
+        fn && fn();
+    }
+}
+
+
+function patch4build( assets ) {
+    var sqls = [];
+
+    var curry = function (fn) {
+        var args = [].slice.call(arguments, 1);
+        return function () {
+            return fn.apply(null, args.concat([].slice.call(arguments)));
+        };
+    };
+    var all = function (s, fn) {
+        return Array.prototype.forEach.call($(s), fn);
+    };
+    var $ = function (s, p) {
+        return typeof s === 'string' ? (p || document).querySelectorAll(s) : s;
+    };
+    var rename = function (prefix, name, n, i) {
+        n.setAttribute(
+            'id',
+            prefix + '_' + (name || i)
+            // prefix + '_' + (name || n.innerText).replace(/\&/g, ' ').replace(/\s+/g, ' ')
+        );
+        var keys = (name || n.innerText).replace(/[\'|\"]/g, '')
+                                        .replace(/\&/g, ' ')
+                                        .replace(/\s+/g, ' ');
+        keys.split(',').forEach(function( k ) {
+            sqls.push(
+                [
+                    prefix.split('_')[0],
+                    n.id,
+                    k.trim()
+                ].join( '|' )
+            );
+        });
+    };
+    var remove = function(s) {
+        s = $(s);
+        if (s && s.parentNode) s.parentNode.removeChild(s);
+    };
+    var isComment = function(n) { return n.nodeType === 8; };
+
+
+
+    var comments = [].filter.call(
+        document.childNodes, isComment
+    ).concat(
+        [].filter.call(document.documentElement.childNodes, isComment)
+    ).concat(
+        [].filter.call(document.head.childNodes, isComment)
+    );
+    all(comments, remove);
+    all('script', remove);
+    all('link', remove);
+    remove($('.page-header')[0]);
+    remove($('.page-footer')[0]);
+
+    all('.ch-section__title', function() {
+
+    });    
+
+    all('.ch-section', function (n) {
+        var t = $('.ch-section__title', n)[0].innerText.replace(/^\s+|\s+$/g, '');
+        rename('Category', t, n);
+
+        //all('.ch-section__title', curry(rename, t));
+        all($('.ch-subsection__title', n), curry(rename, 'Section_' + t, ''));
+        all($('.ch-snippet__name', n), curry(rename, 'Directive_' + t, ''));
+    });
+
+    all(assets.css, function (css) {
+        var l = document.createElement('link');
+        l.setAttribute('rel', 'stylesheet');
+        l.href = css.name;
+        document.head.appendChild(l);
+    });
+
+    return sqls;
+}
+
