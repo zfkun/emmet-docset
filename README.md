@@ -26,8 +26,8 @@ Emmet-DocSet
 ~~$ python build.py~~
 
 	$ brew update & brew install phantomjs
-	$ chmod +x tools/build
-	$ ./tools/build
+	$ chmod +x build
+	$ ./build
 
 ### Feed [(Online)](http://zfkun.github.io/emmet-docset/Emmet.xml)
 

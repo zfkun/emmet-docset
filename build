@@ -5,7 +5,7 @@ var spawn = require('child_process').spawn;
 var webpage = require( 'webpage' );
 
 var targetURL = 'http://docs.emmet.io/cheat-sheet/';
-var outputDir = '../src/';
+var outputDir = './src/';
 var outputFile = 'cheat-sheet.html';
 var assets = { css: [], js: [], cache: {} };
 
