@@ -1,9 +1,8 @@
 {
   "name": "emmet-docset",
   "version": "0.1.2",
-  "description": "Dash Emmet documentation generator",
+  "description": "Emmet docset generator for Dash",
   "author": "zfkun <zfkun@msn.com>",
-  "main": "build.js",
   "keywords": [
     "emmet",
     "dash",
