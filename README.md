@@ -1,4 +1,4 @@
-#Emmet-DocSet
+#Emmet-DocSet [![NPM version](https://badge.fury.io/js/emmet-docset.png)](http://badge.fury.io/js/emmet-docset) [![DevDependencies Status](https://david-dm.org/zfkun/emmet-docset/dev-status.png)](https://david-dm.org/zfkun/emmet-docset#info=devDependencies)
 
 [Emmet](http://emmet.io/) (formerly Zen Coding) DocSet for [Dash](http://kapeli.com).
 
